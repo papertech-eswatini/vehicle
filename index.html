@@ -109,12 +109,49 @@ main{max-width:560px;margin:0 auto;padding:16px 16px 40px}
 .steps{text-align:left;background:#fff;border:1px solid var(--line);border-radius:var(--r);padding:12px 16px;margin:0 0 18px;font-size:14px}
 .steps li{margin:6px 0}
 .mini{font-size:12px;color:var(--sub)}
+/* 今日行程（2026-11-12）：出門按啟動、回來按結束 */
+.tabs{display:grid;grid-template-columns:1fr 1fr;gap:6px;background:#e3e8ef;border-radius:15px;padding:4px;margin:2px 0 14px}
+.tabs button{border:0;background:transparent;border-radius:12px;padding:8px 6px;font-weight:700;font-size:15px;color:var(--sub)}
+.tabs button small{display:block;font-weight:400;font-size:11.5px}
+.tabs button.on{background:#fff;color:var(--ink);box-shadow:0 2px 8px rgba(11,42,91,.12)}
+.tpane{display:none}.tpane.on{display:block}
+.job{width:100%;display:flex;gap:12px;align-items:flex-start;text-align:left;background:var(--card);border:1.5px solid var(--line);border-radius:14px;padding:12px 13px;margin-bottom:8px}
+.job .ck{width:26px;height:26px;border-radius:50%;border:2px solid #b8c2d1;flex:none;display:flex;align-items:center;justify-content:center;margin-top:1px;background:#fff}
+.job .ck svg{display:none}
+.job.on{border-color:var(--ok);background:var(--okb)}
+.job.on .ck{background:var(--ok);border-color:var(--ok)}
+.job.on .ck svg{display:block}
+.job .m{flex:1;min-width:0}
+.job b{display:block;font-size:16px;line-height:1.3}
+.job small{display:block;color:var(--sub);font-size:13px;margin-top:2px}
+.job.done{opacity:.62;background:#f7f8fa}
+.job.done .ck{background:#9aa6b6;border-color:#9aa6b6}.job.done .ck svg{display:block}
+.job.off{opacity:.55}
+.job.off b{text-decoration:line-through}
+.tm{display:inline-block;background:var(--warnb);color:var(--warn);border-radius:999px;font-size:12px;font-weight:700;padding:1px 8px;margin-right:6px;vertical-align:1px}
+.big.start{background:linear-gradient(135deg,#17924b,#0f6e37);box-shadow:0 10px 26px rgba(18,122,62,.3)}
+.big.stop{background:linear-gradient(135deg,#e0560f,#b03a0c);box-shadow:0 10px 26px rgba(176,58,12,.3)}
+.big.sure{background:linear-gradient(135deg,#c62828,#8e1b1b)}
+.big:disabled{opacity:.42;box-shadow:none}
+.runcard{border-radius:20px;padding:16px 18px;background:linear-gradient(135deg,#0b2a5b,#123f80);color:#fff;margin-bottom:6px;display:flex;align-items:center;gap:14px}
+.runcard .dot{width:14px;height:14px;border-radius:50%;background:#ffb547;box-shadow:0 0 0 0 rgba(255,181,71,.7);animation:pulse 1.8s infinite;flex:none}
+@keyframes pulse{70%{box-shadow:0 0 0 12px rgba(255,181,71,0)}100%{box-shadow:0 0 0 0 rgba(255,181,71,0)}}
+.runcard .clock{font-size:40px;font-weight:800;font-variant-numeric:tabular-nums;line-height:1.05}
+.runcard small{display:block;font-size:13px;opacity:.85}
+.add{width:100%;border:1.5px dashed #b8c2d1;background:#fafbfd;border-radius:14px;padding:12px;color:var(--acc);font-weight:700;font-size:15px}
+.add small{display:block;font-weight:400;color:var(--sub);font-size:12px}
+.addf{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:4px 13px 13px;margin-bottom:8px}
+.addf .fl{margin-top:10px}
+.xrm{border:0;background:#eef1f5;border-radius:10px;padding:6px 10px;font-size:13px;color:var(--sub);flex:none}
+.stick{position:sticky;bottom:0;padding:14px 0 calc(10px + env(safe-area-inset-bottom));background:linear-gradient(rgba(243,245,248,0),var(--bg) 22%);margin-top:6px;z-index:3}
+.secx{display:flex;justify-content:space-between;align-items:baseline;gap:8px}
+.secx small{font-weight:400}
 </style>
 </head>
 <body>
 <header><div class="hrow">
   <div class="logo"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M2 16V11h9V7h5l3.5 4H22v5h-1.5"/><path d="M4.5 16H2"/><circle cx="6.5" cy="16.5" r="1.9"/><circle cx="17.5" cy="16.5" r="1.9"/><path d="M8.4 16.5h7.2"/></svg></div>
-  <div class="ht"><b id="brand">PTE 公司車 Vehicle</b><span id="hsub">出車・回廠・加油 Check out, in, refuel</span></div>
+  <div class="ht"><b id="brand">PTE 司機 Driver</b><span id="hsub">今日行程・公司車 Trips & vehicles</span></div>
   <span class="net" id="net">連線 Online</span>
 </div></header>
 
@@ -138,10 +175,14 @@ main{max-width:560px;margin:0 auto;padding:16px 16px 40px}
   <!-- 首頁 -->
   <section class="view" id="v-home">
     <div class="hello"><b id="hiName"></b><span id="hiId"></span></div>
+    <div class="tabs" id="tabs"><button data-t="trips">今日行程<small>Today's trips</small></button><button data-t="car">公司車<small>Vehicles</small></button></div>
+    <div class="tpane" id="t-trips"><div id="trips"></div></div>
+    <div class="tpane" id="t-car">
     <div id="licNote"></div>
     <button class="big" id="scanCar"><svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.8" stroke-linecap="round"><path d="M4 8V5a1 1 0 0 1 1-1h3M16 4h3a1 1 0 0 1 1 1v3M20 16v3a1 1 0 0 1-1 1h-3M8 20H5a1 1 0 0 1-1-1v-3"/><rect x="8" y="8" width="3" height="3"/><rect x="13" y="8" width="3" height="3"/><rect x="8" y="13" width="3" height="3"/><path d="M13 13h3v3"/></svg><span><b>掃車上的 QR</b><small>Scan the QR in the vehicle</small></span></button>
     <div class="sec">公司車 Vehicles</div>
     <div class="box" id="cars"></div>
+    </div>
     <div class="sec">我的紀錄 My entries</div>
     <div class="box" id="mine"></div>
     <p class="mini" style="margin-top:18px" id="ver"></p>
@@ -167,12 +208,12 @@ main{max-width:560px;margin:0 auto;padding:16px 16px 40px}
 <div class="toast" id="toast"></div>
 
 <script>
-var APP_VER = '2026-10-24-1';
+var APP_VER = '2026-11-12-1';
 var CO = 'PTE';                   // PPA 版改 'PPA'（標題、卡片格式跟著變），manifest.json 的名稱也要改
 var API = 'https://script.google.com/macros/s/AKfycbwT08HpEotwc0Rct2WFNUtMADqnWPIN7-Cf1bCGSGdyHo5yB6Py1sHcxyTUvWedBsIc/exec';   // 部署後填 Apps Script 網址（…/exec）；PTE、PPA 各自的後端
 var NET_TIMEOUT_MS = 30000;       // Google 後端冷啟動要 6 到 12 秒以上
 var SYNC_MS = 4 * 60 * 1000;
-var STORE = { tok: 'pte_veh_token_v1', me: 'pte_veh_me_v1', dev: 'pte_veh_device_v1', sync: 'pte_veh_sync_v1', q: 'pte_veh_queue_v1', log: 'pte_veh_log_v1', trip: 'pte_veh_mytrip_v1' };
+var STORE = { tok: 'pte_veh_token_v1', me: 'pte_veh_me_v1', dev: 'pte_veh_device_v1', sync: 'pte_veh_sync_v1', q: 'pte_veh_queue_v1', log: 'pte_veh_log_v1', trip: 'pte_veh_mytrip_v1', tab: 'pte_veh_tab_v1' };
 var PURPOSES = [['del','送貨','Delivery'],['waste','收廢紙','Waste paper pickup'],['air','接送機','Airport transfer'],['bank','銀行與公務','Bank & errands'],['buy','採購','Purchasing'],['oth','其他','Other']];
 var CHECKS = [['tyre','輪胎','Tyres'],['light','燈光','Lights'],['body','車身無新傷','No new damage'],['docs','行照在車上','Licence disc in car']];
 var FUELLV = [['f','滿','Full'],['34','3/4','3/4'],['12','1/2','1/2'],['14','1/4 以下','1/4 or less']];
@@ -188,7 +229,7 @@ function fmtT(t){ var d = new Date(t); return (d.getMonth()+1) + '/' + d.getDate
 function rid(p){ return p + Date.now().toString(36).toUpperCase() + Math.random().toString(36).slice(2,6).toUpperCase(); }
 function toast(m, bad){ var t = $('#toast'); t.textContent = m; t.className = 'toast on' + (bad ? ' bad' : ''); clearTimeout(t._h); t._h = setTimeout(function(){ t.className = 'toast'; }, 3200); }
 
-document.title = CO + ' 公司車 Vehicle'; $('#brand').textContent = CO + ' 公司車 Vehicle';
+document.title = CO + ' 司機 Driver'; $('#brand').textContent = CO + ' 司機 Driver';
 var DEVICE = lsGet(STORE.dev, '');
 if (!DEVICE){ DEVICE = 'phone-' + Math.random().toString(36).slice(2,7); lsSet(STORE.dev, DEVICE); }
 var DEVICE_LABEL = DEVICE + ' ' + (navigator.userAgent.match(/\(([^)]+)\)/) || ['',''])[1].slice(0, 60);
@@ -215,7 +256,7 @@ function sync(){
   return post({ action: 'sync' }).then(function(r){
     if (!r.ok){ if (r.code === 'AUTH') authLost(); return; }
     net(true);
-    SYNC = { cars: r.cars, mine: r.mine, at: Date.now() };
+    SYNC = { cars: r.cars, mine: r.mine, jobs: r.jobs || [], run: r.run || null, today: r.today || '', jobsErr: r.jobsErr || '', at: Date.now() };
     ME = r.me; lsSet(STORE.me, ME); lsSet(STORE.sync, SYNC);
     render();
   }).catch(function(){ net(false); });
@@ -234,7 +275,7 @@ function enqueue(it){
 function addLog(it, st, msg){
   var log = lsGet(STORE.log, []);
   var i = log.findIndex(function(x){ return x.rid === it.rid; });
-  var row = { rid: it.rid, k: it.action, car: it.carName, at: it.ts, km: it.km, l: it.litres, e: it.expiry, st: st, msg: msg || '' };
+  var row = { rid: it.rid, k: it.action, car: it.carName, at: it.ts, km: it.km, l: it.litres, e: it.expiry, n: it.n, st: st, msg: msg || '' };
   if (i >= 0) log[i] = row; else log.unshift(row);
   lsSet(STORE.log, log.slice(0, 30));
   renderMine();
@@ -246,7 +287,7 @@ function flush(){
   if (!q.length) return;
   flushing = true;
   var it = q[0];
-  var body = {}; Object.keys(it).forEach(function(k){ if (k !== 'carName') body[k] = it[k]; });
+  var body = {}; Object.keys(it).forEach(function(k){ if (k !== 'carName' && k !== 'items') body[k] = it[k]; });
   post(body).then(function(r){
     flushing = false;
     net(true);
@@ -254,6 +295,8 @@ function flush(){
       done(it, 'ok', '');
       if (it.action === 'out') lsSet(STORE.trip, { car: it.carId, trip: it.rid });
       if (it.action === 'in') lsDel(STORE.trip);
+      if (it.action === 'go' && r.code !== 'DUP') SYNC.run = { id: it.rid, start: it.ts, items: it.items };
+      if (it.action === 'back') SYNC.run = null;
     } else if (r.code === 'AUTH'){ authLost(); return; }
     else if (r.code === 'OPEN' && it.action === 'out' && !it.closePrev){
       // 手機以為車在廠，後端說上一趟沒回廠：人已經開著這台車，所以把上一趟收掉再送一次
@@ -296,9 +339,111 @@ function render(){
       (out ? '<span class="chip out">外出中 Out</span>' : '<span class="chip in">在廠 In yard</span>') + '</div>';
   }).join('') || '<div class="empty">還沒有車輛資料，有網路時會自動更新 No vehicles yet</div>';
   renderMine();
+  renderTrips();
   $('#ver').textContent = '版本 Version ' + APP_VER + (SYNC.at ? '・更新 Updated ' + fmtT(SYNC.at) : '');
 }
-var KNAME = { out: ['出車','Out','out'], in: ['回廠','In','in'], fuel: ['加油','Fuel','wait'], licence: ['駕照','Licence','wait'] };
+var KNAME = { out: ['出車','Out','out'], in: ['回廠','In','in'], fuel: ['加油','Fuel','wait'], licence: ['駕照','Licence','wait'], go: ['啟動','Start','out'], back: ['結束','Finish','in'] };
+
+/* ---------- 今日行程：出門按「啟動」、回來按「結束」（2026-11-12 Alan） ----------
+   行程來自看板「🚚 司機行程」（Joe 排的）。啟動時勾這趟要跑哪幾筆，可臨時加一筆；
+   結束時沒跑到的取消勾，總時間由後端平均分給有跑到的行程。斷網照樣能按，先存手機再送。 */
+var TAB = lsGet(STORE.tab, 'trips');
+var SEL = {}, EXTRA = [], SKIP = {}, ADDING = false, SURE = 0;
+function setTab(t){
+  TAB = t; lsSet(STORE.tab, t);
+  document.querySelectorAll('#tabs button').forEach(function(b){ b.classList.toggle('on', b.dataset.t === t); });
+  document.querySelectorAll('.tpane').forEach(function(p){ p.classList.toggle('on', p.id === 't-' + t); });
+}
+document.querySelectorAll('#tabs button').forEach(function(b){ b.onclick = function(){ setTab(b.dataset.t); }; });
+/** 我這趟出門：佇列裡還沒送出的啟動／結束優先，否則看後端 */
+function curRun(){
+  var g = null, back = false;
+  queue().forEach(function(it){ if (it.action === 'go'){ g = it; back = false; } else if (it.action === 'back'){ g = null; back = true; } });
+  if (g) return { id: g.rid, start: g.ts, items: g.items || [], pending: true };
+  if (back) return null;
+  return SYNC.run || null;
+}
+function dur(ms){ var m = Math.max(0, Math.floor(ms / 60000)); return Math.floor(m / 60) + ':' + String(m % 60).padStart(2, '0'); }
+var CHECK = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>';
+function jobLine(j){
+  var place = [j.area, j.shop].filter(function(s){ return s && String(s).trim(); }).join('・');
+  return '<b>' + (j.time ? '<span class="tm">⏱ ' + esc(j.time) + '</span>' : '') + esc(j.what) + '</b>' +
+    '<small>' + esc(place || '—') + (j.by ? '・' + esc(j.by) : '') + (j.mins ? '・預計 ' + j.mins + ' 分 min' : '') + '</small>';
+}
+function renderTrips(){
+  var box = $('#trips'); if (!box) return;
+  var run = curRun(), jobs = SYNC.jobs || [], h = '';
+  if (SYNC.jobsErr && !jobs.length) h += '<div class="note">行程表暫時讀不到，等一下再看 Trips are not available right now.</div>';
+  if (run){
+    h += '<div class="runcard"><span class="dot"></span><div style="flex:1"><small>出門中 Out now</small><div class="clock" id="runClock">' + dur(Date.now() - run.start) + '</div>' +
+      '<small>啟動 Started ' + fmtT(run.start) + (run.pending ? '・傳送中 Sending' : '') + '</small></div></div>';
+    h += '<div class="sec secx"><span>這趟的行程 This run</span><small>沒跑到的點一下取消 Tap any you did not do</small></div>';
+    h += (run.items || []).map(function(j, i){
+      return '<button type="button" class="job' + (SKIP[i] ? ' off' : ' on') + '" data-skip="' + i + '"><span class="ck">' + CHECK + '</span><span class="m">' + jobLine(j) + '</span></button>';
+    }).join('');
+    h += '<div class="stick"><button class="big stop' + (SURE > Date.now() ? ' sure' : '') + '" id="backBtn"><svg width="40" height="40" viewBox="0 0 24 24" fill="#fff"><rect x="6" y="6" width="12" height="12" rx="2"/></svg><span><b>' +
+      (SURE > Date.now() ? '確定回來了？再按一次' : '結束　回來了') + '</b><small>' + (SURE > Date.now() ? 'Tap again to confirm' : 'Finish, I am back') + '</small></span></button></div>';
+  } else {
+    var open = jobs.filter(function(j){ return j.st !== 'done'; }), done = jobs.filter(function(j){ return j.st === 'done'; });
+    var n = Object.keys(SEL).filter(function(k){ return SEL[k] && open.some(function(j){ return j.id === k; }); }).length + EXTRA.length;
+    h += '<div class="sec secx"><span>今天要跑的 To do today' + (SYNC.today ? '・' + SYNC.today.slice(5).replace('-', '/') : '') + '</span><small>點選這趟要跑的 Tap the ones for this run</small></div>';
+    h += open.map(function(j){
+      var tag = j.st === 'doing' ? '<span class="chip out" style="margin-left:6px">進行中 In progress</span>' : '';
+      var old = j.date && SYNC.today && j.date < SYNC.today ? '<span class="chip bad" style="margin-left:6px">' + esc(j.date.slice(5).replace('-', '/')) + ' 沒結束 Not finished</span>' : '';
+      return '<button type="button" class="job' + (SEL[j.id] ? ' on' : '') + '" data-id="' + esc(j.id) + '"><span class="ck">' + CHECK + '</span><span class="m">' + jobLine(j) + (tag || old ? '<small>' + tag + old + '</small>' : '') + '</span></button>';
+    }).join('') || '<div class="empty">今天沒有排行程 Nothing planned for today</div>';
+    h += EXTRA.map(function(x, i){
+      return '<div class="job on"><span class="ck">' + CHECK + '</span><span class="m"><b>' + esc(x.what) + '</b><small>' + esc(x.area || '—') + '・臨時加 Added by me</small></span><button type="button" class="xrm" data-rm="' + i + '">移除 Remove</button></div>';
+    }).join('');
+    if (ADDING) h += '<div class="addf"><label class="fl">要幹嘛 What to do</label><input class="inp" id="xWhat" maxlength="200" placeholder="例 買膠帶 e.g. buy tape">' +
+      '<label class="fl">去哪裡 Where</label><input class="inp" id="xArea" maxlength="80" placeholder="例 Matsapha">' +
+      '<div class="st" id="xSt"></div><div style="display:grid;grid-template-columns:1fr 2fr;gap:8px;margin-top:10px"><button type="button" class="btn" id="xNo">取消<small>Cancel</small></button><button type="button" class="btn pri" id="xOk">加入<small>Add</small></button></div></div>';
+    else h += '<button type="button" class="add" id="xAdd">＋ 臨時加一筆<small>Add an errand that is not on the list</small></button>';
+    h += '<div class="stick"><button class="big start" id="goBtn"' + (n ? '' : ' disabled') + '><svg width="40" height="40" viewBox="0 0 24 24" fill="#fff"><path d="M7 5.5v13a1 1 0 0 0 1.5.86l10.5-6.5a1 1 0 0 0 0-1.72L8.5 4.64A1 1 0 0 0 7 5.5z"/></svg><span><b>啟動　出門</b><small>' +
+      (n ? 'Start・這趟 ' + n + ' 筆 ' + n + ' trip' + (n > 1 ? 's' : '') : '先點選要跑的行程 Choose trips first') + '</small></span></button></div>';
+    if (done.length) h += '<div class="sec">今天已完成 Done today (' + done.length + ')</div>' + done.map(function(j){ return '<div class="job done"><span class="ck">' + CHECK + '</span><span class="m">' + jobLine(j) + '</span></div>'; }).join('');
+  }
+  box.innerHTML = h;
+  box.querySelectorAll('[data-id]').forEach(function(b){ b.onclick = function(){ SEL[b.dataset.id] = !SEL[b.dataset.id]; renderTrips(); }; });
+  box.querySelectorAll('[data-skip]').forEach(function(b){ b.onclick = function(){ var i = +b.dataset.skip; SKIP[i] = !SKIP[i]; renderTrips(); }; });
+  box.querySelectorAll('[data-rm]').forEach(function(b){ b.onclick = function(){ EXTRA.splice(+b.dataset.rm, 1); renderTrips(); }; });
+  if ($('#xAdd')) $('#xAdd').onclick = function(){ ADDING = true; renderTrips(); $('#xWhat').focus(); };
+  if ($('#xNo')) $('#xNo').onclick = function(){ ADDING = false; renderTrips(); };
+  if ($('#xOk')) $('#xOk').onclick = function(){
+    var w = $('#xWhat').value.trim(), a = $('#xArea').value.trim();
+    if (!w){ var s = $('#xSt'); s.className = 'st bad'; s.textContent = '請寫要幹嘛 Write what to do'; return; }
+    EXTRA.push({ what: w, area: a }); ADDING = false; renderTrips();
+  };
+  if ($('#goBtn')) $('#goBtn').onclick = startRun;
+  if ($('#backBtn')) $('#backBtn').onclick = finishRun;
+}
+function startRun(){
+  var jobs = (SYNC.jobs || []).filter(function(j){ return j.st !== 'done' && SEL[j.id]; });
+  if (!jobs.length && !EXTRA.length) return;
+  var items = jobs.map(function(j){ return { id: j.id, time: j.time, area: j.area, shop: j.shop, what: j.what, by: j.by, mins: j.mins }; })
+    .concat(EXTRA.map(function(x){ return { id: '', area: x.area, what: x.what, by: '' }; }));
+  var it = { action: 'go', rid: rid('R'), ids: jobs.map(function(j){ return j.id; }), extra: EXTRA.slice(), items: items, n: items.length,
+    carName: items.length + ' 筆行程 trips', ts: Date.now() };
+  if (!enqueue(it)) return;
+  jobs.forEach(function(j){ j.st = 'doing'; });
+  SEL = {}; EXTRA = []; SKIP = {}; ADDING = false;
+  window.scrollTo(0, 0); renderTrips();
+  toast('已啟動，路上小心 Started. Drive safely.');
+}
+function finishRun(){
+  var run = curRun(); if (!run) return;
+  if (!(SURE > Date.now())){ SURE = Date.now() + 5000; renderTrips(); setTimeout(function(){ if (SURE && SURE <= Date.now()){ SURE = 0; renderTrips(); } }, 5100); return; }
+  SURE = 0;
+  var skip = Object.keys(SKIP).filter(function(k){ return SKIP[k]; }).map(Number);
+  var n = (run.items || []).length - skip.length;
+  if (!enqueue({ action: 'back', rid: rid('B'), run: run.id, skip: skip, n: n, carName: n + ' 筆行程 trips', ts: Date.now() })) return;
+  (run.items || []).forEach(function(x, i){ (SYNC.jobs || []).forEach(function(j){ if (x.id && j.id === x.id) j.st = skip.indexOf(i) >= 0 ? 'todo' : 'done'; }); });
+  SKIP = {};
+  window.scrollTo(0, 0); renderTrips();
+  toast('已結束，' + dur(Date.now() - run.start) + '，謝謝 Finished, thank you.');
+}
+setInterval(function(){ var c = $('#runClock'), r = curRun(); if (c && r) c.textContent = dur(Date.now() - r.start); }, 15000);
+setTab(TAB);
 
 /* ---------- 駕照：綁定後要拍駕照、填到期日；過期不能出車 ---------- */
 function today(){ var d = new Date(); return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0'); }
@@ -340,8 +485,8 @@ function renderMine(){
   $('#mine').innerHTML = log.slice(0, 8).map(function(x){
     var k = KNAME[x.k] || [x.k, '', ''];
     var st = x.st === 'wait' ? '<span class="chip wait">傳送中 Sending</span>' : x.st === 'bad' ? '<span class="chip bad">沒存到 Not saved</span>' : '<span class="chip in">已存 Saved</span>';
-    var d = x.k === 'fuel' ? x.l + ' L' : x.k === 'licence' ? '到期 Expires ' + x.e : nf(x.km) + ' km';
-    return '<div class="row"><div class="m"><b>' + k[0] + ' ' + k[1] + '</b>' + (x.k === 'licence' ? '' : '・' + esc(x.car)) + '<small>' + fmtT(x.at) + '・' + d + (x.msg ? '・' + esc(x.msg) : '') + '</small></div>' + st + '</div>';
+    var d = x.k === 'fuel' ? x.l + ' L' : x.k === 'licence' ? '到期 Expires ' + x.e : (x.k === 'go' || x.k === 'back') ? (x.n || 0) + ' 筆 trips' : nf(x.km) + ' km';
+    return '<div class="row"><div class="m"><b>' + k[0] + ' ' + k[1] + '</b>' + (x.k === 'licence' || x.k === 'go' || x.k === 'back' ? '' : '・' + esc(x.car)) + '<small>' + fmtT(x.at) + '・' + d + (x.msg ? '・' + esc(x.msg) : '') + '</small></div>' + st + '</div>';
   }).join('') || '<div class="empty">還沒有紀錄 No entries yet</div>';
 }
 /** 還在佇列裡的出車／回廠，用來讓畫面先反映（斷網時） */
