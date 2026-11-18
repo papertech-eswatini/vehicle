@@ -210,7 +210,7 @@ main{max-width:560px;margin:0 auto;padding:16px 16px 40px}
 <div class="toast" id="toast"></div>
 
 <script>
-var APP_VER = '2026-11-18-1';
+var APP_VER = '2026-11-18-2';
 var CO = 'PTE';                   // PPA 版改 'PPA'（標題、卡片格式跟著變），manifest.json 的名稱也要改
 var API = 'https://script.google.com/macros/s/AKfycbwT08HpEotwc0Rct2WFNUtMADqnWPIN7-Cf1bCGSGdyHo5yB6Py1sHcxyTUvWedBsIc/exec';   // 部署後填 Apps Script 網址（…/exec）；PTE、PPA 各自的後端
 var NET_TIMEOUT_MS = 30000;       // Google 後端冷啟動要 6 到 12 秒以上
@@ -499,7 +499,7 @@ function goKm(c, box, closePrev){
   if (!lic.ok){ box.innerHTML = '<div class="note bad" style="margin-top:12px">' + lic.msg + '<br><button class="btn pri" style="margin-top:8px;width:100%" onclick="formLic()">登記駕照<small>Add driver licence</small></button></div>'; F.mode = 'nolic'; return; }
   box.innerHTML = (closePrev ? '<div class="note" style="margin-top:12px">上一趟會標記「沒回廠登記」，Alan 會看到 The last trip will be marked as not checked in.</div>' : '') +
     kmBox(c) + '<div class="ref">上次 Last <b>' + nf(lastKm(c)) + ' km</b></div>' +
-    '<label class="fl">拍里程表 Photo of odometer</label>' + photoBox('photo', '拍照', 'Take photo') +
+    '<label class="fl">拍里程表 Photo of odometer<small>選填，相機不清楚可以不拍 Optional, skip if your camera is not clear</small></label>' + photoBox('photo', '拍照', 'Take photo') +
     '<label class="fl">出車前檢查 Pre-trip check</label><div class="chk">' + CHECKS.map(function(k){ return '<label><input type="checkbox" data-c="' + k[0] + '" checked><span>' + k[1] + '<small>' + k[2] + '</small></span></label>'; }).join('') + '</div>';
 }
 function saveGo(){
@@ -514,7 +514,6 @@ function saveGo(){
     var km = Number($('#km').value), lk = lastKm(c);
     if (!km) return stat('請輸入里程 Enter the odometer', 'bad');
     if (km < lk) return stat('里程比上次 ' + nf(lk) + ' km 少，請再看一次 Lower than last reading, please check', 'bad');
-    if (!F.photo) return stat('請拍里程表 Take the odometer photo', 'bad');
     if (!F.closePrev && lk && km - lk > 2 && !F.gapOk){ F.gapOk = 1; return stat('跟上次差 ' + (km - lk) + ' km，有一段沒登記。確定的話再按一次 ' + (km - lk) + ' km were not logged. Tap again if correct.', 'warn'); }
     var checks = {}; document.querySelectorAll('#form [data-c]').forEach(function(x){ checks[x.dataset.c] = x.checked ? 1 : 0; });
     car.trip = rid('T'); car.km = km; car.photo = F.photo; car.checks = checks; car.closePrev = !!F.closePrev;
@@ -558,7 +557,7 @@ function formBack(run, c){
   var skipped = Object.keys(SKIP).filter(function(k){ return SKIP[k]; }).length, n = (run.items || []).length - skipped;
   form('回廠 結束 Finish', esc(c.name) + '・' + esc(c.plate) + '・完成 ' + n + ' 筆 ' + n + ' done',
     kmBox(c) + '<div class="ref">出門時 At start <b>' + nf(outKm) + ' km</b>　<span id="drv"></span></div>' +
-    '<label class="fl">拍里程表 Photo of odometer</label>' + photoBox('photo', '拍照', 'Take photo') +
+    '<label class="fl">拍里程表 Photo of odometer<small>選填，相機不清楚可以不拍 Optional, skip if your camera is not clear</small></label>' + photoBox('photo', '拍照', 'Take photo') +
     '<label class="fl">油量 Fuel level</label>' + opts('fuel', FUELLV) +
     '<label class="fl">有沒有狀況 Anything happened?</label>' + opts('issue', ISSUES) +
     '<label class="fl">說明 Details</label><textarea class="inp" id="note" rows="2" maxlength="300" placeholder="有狀況請寫清楚 Describe if anything happened"></textarea>',
@@ -566,7 +565,6 @@ function formBack(run, c){
       var km = Number($('#km').value);
       if (!km) return stat('請輸入里程 Enter the odometer', 'bad');
       if (km < outKm) return stat('里程比出門時少，請再看一次 Lower than at start, please check', 'bad');
-      if (!F.photo) return stat('請拍里程表 Take the odometer photo', 'bad');
       if (!F.fuel) return stat('請選油量 Choose the fuel level', 'bad');
       if (!F.issue) return stat('請選有沒有狀況 Tell us if anything happened', 'bad');
       if (F.issue !== 'none' && !$('#note').value.trim()) return stat('有狀況請寫說明 Please describe what happened', 'bad');
@@ -702,7 +700,7 @@ function formOut(closePrev){
     '<label class="fl">事由 Purpose</label>' + opts('purpose', PURPOSES) +
     '<label class="fl">去哪裡 Destination</label><input class="inp" id="dest" maxlength="120" placeholder="例 Kellogg\'s Matsapha e.g. customer or place">' +
     kmBox(c) + '<div class="ref">上次 Last <b>' + nf(lastKm(c)) + ' km</b></div>' +
-    '<label class="fl">拍里程表 Photo of odometer</label>' + photoBox('photo', '拍照', 'Take photo') +
+    '<label class="fl">拍里程表 Photo of odometer<small>選填，相機不清楚可以不拍 Optional, skip if your camera is not clear</small></label>' + photoBox('photo', '拍照', 'Take photo') +
     '<label class="fl">出車前檢查 Pre-trip check</label><div class="chk">' + CHECKS.map(function(k){ return '<label><input type="checkbox" data-c="' + k[0] + '" checked><span>' + k[1] + '<small>' + k[2] + '</small></span></label>'; }).join('') + '</div>' +
     '<label class="fl">備註 Note</label><textarea class="inp" id="note" rows="2" maxlength="300" placeholder="選填 Optional"></textarea>',
     ['go', '確認出車', 'Confirm'], saveOut);
@@ -713,7 +711,6 @@ function saveOut(){
   if (!$('#dest').value.trim()) return stat('請寫去哪裡 Enter the destination', 'bad');
   if (!km) return stat('請輸入里程 Enter the odometer', 'bad');
   if (km < lk) return stat('里程比上次 ' + nf(lk) + ' km 少，請再看一次 Lower than last reading, please check', 'bad');
-  if (!F.photo) return stat('請拍里程表 Take the odometer photo', 'bad');
   if (!F.closePrev && lk && km - lk > 2 && !F.gapOk){ F.gapOk = 1; return stat('跟上次差 ' + (km - lk) + ' km，有一段沒登記。確定的話再按一次 ' + (km - lk) + ' km were not logged. Tap again if correct.', 'warn'); }
   var checks = {}; document.querySelectorAll('#form [data-c]').forEach(function(x){ checks[x.dataset.c] = x.checked ? 1 : 0; });
   var it = { action: 'out', rid: rid('T'), car: CUR.code, carId: c.id, carName: c.name, purpose: F.purpose, dest: $('#dest').value.trim(),
@@ -728,7 +725,7 @@ function formIn(){
   var outKm = o ? o.km : lastKm(c);
   form('回廠 Check in', esc(c.name) + '・' + (o ? esc(o.name) + ' ' + fmtT(o.at) + ' 開出 out' : esc(c.plate)),
     kmBox(c) + '<div class="ref">出車時 At check-out <b>' + nf(outKm) + ' km</b>　<span id="drv"></span></div>' +
-    '<label class="fl">拍里程表 Photo of odometer</label>' + photoBox('photo', '拍照', 'Take photo') +
+    '<label class="fl">拍里程表 Photo of odometer<small>選填，相機不清楚可以不拍 Optional, skip if your camera is not clear</small></label>' + photoBox('photo', '拍照', 'Take photo') +
     '<label class="fl">油量 Fuel level</label>' + opts('fuel', FUELLV) +
     '<label class="fl">有沒有狀況 Anything happened?</label>' + opts('issue', ISSUES) +
     '<label class="fl">說明 Details</label><textarea class="inp" id="note" rows="2" maxlength="300" placeholder="有狀況請寫清楚 Describe if anything happened"></textarea>',
@@ -739,7 +736,6 @@ function saveIn(outKm, trip){
   var c = CUR.car, km = Number($('#km').value);
   if (!km) return stat('請輸入里程 Enter the odometer', 'bad');
   if (km < outKm) return stat('里程比出車時少，請再看一次 Lower than at check-out, please check', 'bad');
-  if (!F.photo) return stat('請拍里程表 Take the odometer photo', 'bad');
   if (!F.fuel) return stat('請選油量 Choose the fuel level', 'bad');
   if (!F.issue) return stat('請選有沒有狀況 Tell us if anything happened', 'bad');
   if (F.issue !== 'none' && !$('#note').value.trim()) return stat('有狀況請寫說明 Please describe what happened', 'bad');
@@ -755,7 +751,7 @@ function formFuel(){
     '<label class="fl">有沒有加滿 Filled to full?<small>加滿才算得出油耗 Full tank is needed to work out fuel economy</small></label>' + opts('full', [['1','加滿','Full'],['0','沒加滿','Partial']]) +
     kmBox(c) +
     '<label class="fl">拍收據 Photo of receipt<small>金額不用打，看收據就好 No need to type the amount</small></label>' + photoBox('photoRc', '拍收據', 'Receipt') +
-    '<label class="fl">拍里程表 Photo of odometer</label>' + photoBox('photoKm', '拍照', 'Take photo'),
+    '<label class="fl">拍里程表 Photo of odometer<small>選填，相機不清楚可以不拍 Optional, skip if your camera is not clear</small></label>' + photoBox('photoKm', '拍照', 'Take photo'),
     ['pri', '確認加油', 'Confirm'], saveFuel);
   document.querySelector('#form .op[data-g="full"][data-v="1"]').classList.add('on');
 }
@@ -766,7 +762,6 @@ function saveFuel(){
   if (!km) return stat('請輸入里程 Enter the odometer', 'bad');
   if (km < lk) return stat('里程比上次 ' + nf(lk) + ' km 少 Lower than last reading', 'bad');
   if (!F.photoRc) return stat('請拍收據 Take the receipt photo', 'bad');
-  if (!F.photoKm) return stat('請拍里程表 Take the odometer photo', 'bad');
   if (!enqueue({ action: 'fuel', rid: rid('F'), car: CUR.code, carId: c.id, carName: c.name, litres: l, full: F.full === '1', km: km,
     photoRc: F.photoRc, photoKm: F.photoKm, ts: F.photoKm_at || Date.now() })) return;
   go('home'); toast('已登記加油 Refuel logged');
