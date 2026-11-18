@@ -7,6 +7,8 @@
 <title>PTE 公司車 Vehicle</title>
 <link rel="manifest" href="manifest.json">
 <link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<meta name="apple-mobile-web-app-title" content="PTE Driver">
 <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js"></script>
 <style>
 /* PTE 公司車登記 司機手機 APP（2026-10-24 Alan：司機用自己的手機，跟打卡一樣做成網頁 APP）
@@ -208,7 +210,7 @@ main{max-width:560px;margin:0 auto;padding:16px 16px 40px}
 <div class="toast" id="toast"></div>
 
 <script>
-var APP_VER = '2026-11-12-1';
+var APP_VER = '2026-11-18-1';
 var CO = 'PTE';                   // PPA 版改 'PPA'（標題、卡片格式跟著變），manifest.json 的名稱也要改
 var API = 'https://script.google.com/macros/s/AKfycbwT08HpEotwc0Rct2WFNUtMADqnWPIN7-Cf1bCGSGdyHo5yB6Py1sHcxyTUvWedBsIc/exec';   // 部署後填 Apps Script 網址（…/exec）；PTE、PPA 各自的後端
 var NET_TIMEOUT_MS = 30000;       // Google 後端冷啟動要 6 到 12 秒以上
@@ -295,12 +297,16 @@ function flush(){
       done(it, 'ok', '');
       if (it.action === 'out') lsSet(STORE.trip, { car: it.carId, trip: it.rid });
       if (it.action === 'in') lsDel(STORE.trip);
-      if (it.action === 'go' && r.code !== 'DUP') SYNC.run = { id: it.rid, start: it.ts, items: it.items };
-      if (it.action === 'back') SYNC.run = null;
+      if (it.action === 'go' && r.code !== 'DUP') SYNC.run = { id: it.rid, start: it.ts, items: it.items, car: runCarOf(it, r) };
+      if (it.action === 'go' && r.mode === 'out' && it.carId) lsSet(STORE.trip, { car: it.carId, trip: r.carTrip });
+      if (it.action === 'back'){ SYNC.run = null; if (it.carId) lsDel(STORE.trip); }
     } else if (r.code === 'AUTH'){ authLost(); return; }
     else if (r.code === 'OPEN' && it.action === 'out' && !it.closePrev){
       // 手機以為車在廠，後端說上一趟沒回廠：人已經開著這台車，所以把上一趟收掉再送一次
       it.closePrev = true; var q2 = queue(); q2[0] = it; lsSet(STORE.q, q2);
+    } else if (r.code === 'OPEN' && it.action === 'go' && it.car && !it.car.closePrev){
+      // 啟動時選的車，後端說還被別人開著沒回廠：人已經開著這台車，同上
+      it.car.closePrev = true; var q3 = queue(); q3[0] = it; lsSet(STORE.q, q3);
     } else if (r.code === 'ERR'){ setTimeout(flush, 60000); return; }
     else done(it, 'bad', r.msg || r.code);
     sync();
@@ -359,9 +365,21 @@ document.querySelectorAll('#tabs button').forEach(function(b){ b.onclick = funct
 function curRun(){
   var g = null, back = false;
   queue().forEach(function(it){ if (it.action === 'go'){ g = it; back = false; } else if (it.action === 'back'){ g = null; back = true; } });
-  if (g) return { id: g.rid, start: g.ts, items: g.items || [], pending: true };
+  if (g) return { id: g.rid, start: g.ts, items: g.items || [], car: runCarOf(g), pending: true };
   if (back) return null;
   return SYNC.run || null;
+}
+/** 啟動那筆帶的車 → 畫面用（不帶照片） */
+function runCarOf(it, r){
+  var c = it.car; if (!c || !c.id || c.mode === 'none') return null;
+  return { id: c.id, name: c.name, plate: c.plate, mode: (r && r.mode) || c.mode, km: c.km || c.outKm || 0, trip: (r && r.carTrip) || c.trip };
+}
+/** 結束時要不要填回廠：這趟是我開的車，而且車現在還在外面 */
+function runNeedsIn(run){
+  if (!run || !run.car || (run.car.mode !== 'out' && run.car.mode !== 'mine')) return null;
+  var c = (SYNC.cars || []).filter(function(x){ return x.id === run.car.id; })[0];
+  if (!c) return null;
+  return carState(c).out ? c : null;
 }
 function dur(ms){ var m = Math.max(0, Math.floor(ms / 60000)); return Math.floor(m / 60) + ':' + String(m % 60).padStart(2, '0'); }
 var CHECK = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>';
@@ -376,7 +394,8 @@ function renderTrips(){
   if (SYNC.jobsErr && !jobs.length) h += '<div class="note">行程表暫時讀不到，等一下再看 Trips are not available right now.</div>';
   if (run){
     h += '<div class="runcard"><span class="dot"></span><div style="flex:1"><small>出門中 Out now</small><div class="clock" id="runClock">' + dur(Date.now() - run.start) + '</div>' +
-      '<small>啟動 Started ' + fmtT(run.start) + (run.pending ? '・傳送中 Sending' : '') + '</small></div></div>';
+      '<small>啟動 Started ' + fmtT(run.start) + (run.pending ? '・傳送中 Sending' : '') + '</small>' +
+      (run.car ? '<small>🚗 ' + esc(run.car.name) + (run.car.mode === 'ride' ? '・同車 Riding along' : run.car.km ? '・出車 ' + nf(run.car.km) + ' km' : '') + '</small>' : '') + '</div></div>';
     h += '<div class="sec secx"><span>這趟的行程 This run</span><small>沒跑到的點一下取消 Tap any you did not do</small></div>';
     h += (run.items || []).map(function(j, i){
       return '<button type="button" class="job' + (SKIP[i] ? ' off' : ' on') + '" data-skip="' + i + '"><span class="ck">' + CHECK + '</span><span class="m">' + jobLine(j) + '</span></button>';
@@ -417,30 +436,144 @@ function renderTrips(){
   if ($('#goBtn')) $('#goBtn').onclick = startRun;
   if ($('#backBtn')) $('#backBtn').onclick = finishRun;
 }
+/* 啟動＝出車、結束＝回廠（2026-11-18 Alan）：一趟不管幾筆行程，里程只在啟動填一次、結束填一次。
+   車先從清單選，以後改成掃車上的 QR。也可以選「沒開公司車」或「坐別人開的車」，就不用填里程。 */
+var GO = null;
 function startRun(){
   var jobs = (SYNC.jobs || []).filter(function(j){ return j.st !== 'done' && SEL[j.id]; });
   if (!jobs.length && !EXTRA.length) return;
   var items = jobs.map(function(j){ return { id: j.id, time: j.time, area: j.area, shop: j.shop, what: j.what, by: j.by, mins: j.mins }; })
     .concat(EXTRA.map(function(x){ return { id: '', area: x.area, what: x.what, by: '' }; }));
-  var it = { action: 'go', rid: rid('R'), ids: jobs.map(function(j){ return j.id; }), extra: EXTRA.slice(), items: items, n: items.length,
-    carName: items.length + ' 筆行程 trips', ts: Date.now() };
+  GO = { jobs: jobs, items: items };
+  formGo();
+}
+function formGo(){
+  F = {}; CUR = null;
+  var n = GO.items.length, cars = SYNC.cars || [];
+  var carBtn = function(c){
+    var s = carState(c), sub = !s.out ? '在廠 In yard・' + nf(lastKm(c)) + ' km' : s.mine ? '你開出中 Out with you' : esc(s.open ? s.open.name : '') + ' 開出中 Out';
+    return '<button type="button" class="op" data-car="' + esc(c.id) + '">' + esc(c.name) + '<small>' + esc(c.plate) + '<br>' + sub + '</small></button>';
+  };
+  $('#form').innerHTML = '<div class="carhd"><div class="ic">' + carIcon() + '</div><div><b>啟動 出門 Start</b><span>這趟 ' + n + ' 筆行程 ' + n + ' trip' + (n > 1 ? 's' : '') + '</span></div></div>' +
+    '<div class="box" style="margin-bottom:4px">' + GO.items.map(function(j){ return '<div class="row"><div class="m"><b>' + esc(j.what) + '</b><small>' + esc([j.area, j.shop].filter(Boolean).join('・') || '—') + '</small></div></div>'; }).join('') + '</div>' +
+    '<label class="fl">開哪台車 Which vehicle?<small>一趟只填一次里程 One odometer reading for the whole run</small></label>' +
+    '<div class="opts">' + cars.map(carBtn).join('') + '<button type="button" class="op" data-car="none">沒開公司車<small>No company vehicle</small></button></div>' +
+    '<div id="gcar"></div>' +
+    '<div class="st" id="mst"></div><div class="foot"><button class="btn" id="gNo">取消<small>Cancel</small></button><button class="btn go" id="fsave">確認出門<small>Start</small></button></div>';
+  document.querySelectorAll('#form [data-car]').forEach(function(b){ b.onclick = function(){
+    document.querySelectorAll('#form [data-car]').forEach(function(x){ x.classList.remove('on'); });
+    b.classList.add('on'); goPick(b.dataset.car);
+  }; });
+  $('#gNo').onclick = function(){ GO = null; go('home'); };
+  $('#fsave').onclick = saveGo;
+  go('form');
+}
+/** 選了車：在廠＝填里程拍照；我已開出＝不用填；別人開著＝同車或他忘了回廠 */
+function goPick(id){
+  F = { car: id }; stat('');
+  var box = $('#gcar');
+  if (id === 'none'){ CUR = null; F.mode = 'none'; box.innerHTML = '<div class="note info" style="margin-top:12px">不記里程。Walking, taxi or own car: no odometer needed.</div>'; return; }
+  var c = (SYNC.cars || []).filter(function(x){ return x.id === id; })[0]; if (!c) return;
+  CUR = { car: c, code: '' };
+  var s = carState(c);
+  if (s.out && s.mine){
+    F.mode = 'mine';
+    box.innerHTML = '<div class="note info" style="margin-top:12px">你已經開出這台車' + (s.open ? '（出車 ' + nf(s.open.km) + ' km）' : '') + '，不用再填里程，回來按結束時一起回廠。<br>You already checked this vehicle out. You will check it in when you finish.</div>';
+    return;
+  }
+  if (s.out){
+    var who = esc(s.open ? s.open.name : '');
+    box.innerHTML = '<label class="fl">' + who + ' 開出中，還沒回廠 ' + who + ' has it out</label>' +
+      opts('rmode', [['ride', '我跟他同車', 'Riding with ' + who], ['take', '他忘了回廠，我現在開', 'They forgot. I am driving it now']]) + '<div id="gkm"></div>';
+    bindOpts();
+    document.querySelectorAll('#form .op[data-g="rmode"]').forEach(function(b){ b.addEventListener('click', function(){
+      if (b.dataset.v === 'ride'){ F.mode = 'ride'; $('#gkm').innerHTML = '<div class="note info" style="margin-top:12px">不用填里程，' + who + ' 回廠時會記。No odometer needed.</div>'; }
+      else { F.mode = 'out'; F.closePrev = true; goKm(c, $('#gkm'), true); }
+    }); });
+    return;
+  }
+  F.mode = 'out'; goKm(c, box, false);
+}
+function goKm(c, box, closePrev){
+  var lic = licState();
+  if (!lic.ok){ box.innerHTML = '<div class="note bad" style="margin-top:12px">' + lic.msg + '<br><button class="btn pri" style="margin-top:8px;width:100%" onclick="formLic()">登記駕照<small>Add driver licence</small></button></div>'; F.mode = 'nolic'; return; }
+  box.innerHTML = (closePrev ? '<div class="note" style="margin-top:12px">上一趟會標記「沒回廠登記」，Alan 會看到 The last trip will be marked as not checked in.</div>' : '') +
+    kmBox(c) + '<div class="ref">上次 Last <b>' + nf(lastKm(c)) + ' km</b></div>' +
+    '<label class="fl">拍里程表 Photo of odometer</label>' + photoBox('photo', '拍照', 'Take photo') +
+    '<label class="fl">出車前檢查 Pre-trip check</label><div class="chk">' + CHECKS.map(function(k){ return '<label><input type="checkbox" data-c="' + k[0] + '" checked><span>' + k[1] + '<small>' + k[2] + '</small></span></label>'; }).join('') + '</div>';
+}
+function saveGo(){
+  if (!GO) return;
+  if (!F.car) return stat('請選開哪台車 Choose a vehicle', 'bad');
+  if (!F.mode) return stat('請選同車還是你開 Riding along or driving?', 'bad');
+  if (F.mode === 'nolic') return stat('先登記駕照才能開車 Add your driver licence first', 'bad');
+  var c = CUR ? CUR.car : null, car = { mode: F.mode };
+  if (c){ car.id = c.id; car.name = c.name; car.plate = c.plate; }
+  if (F.mode === 'mine'){ var s = carState(c); car.outKm = s.open ? s.open.km : lastKm(c); }
+  if (F.mode === 'out'){
+    var km = Number($('#km').value), lk = lastKm(c);
+    if (!km) return stat('請輸入里程 Enter the odometer', 'bad');
+    if (km < lk) return stat('里程比上次 ' + nf(lk) + ' km 少，請再看一次 Lower than last reading, please check', 'bad');
+    if (!F.photo) return stat('請拍里程表 Take the odometer photo', 'bad');
+    if (!F.closePrev && lk && km - lk > 2 && !F.gapOk){ F.gapOk = 1; return stat('跟上次差 ' + (km - lk) + ' km，有一段沒登記。確定的話再按一次 ' + (km - lk) + ' km were not logged. Tap again if correct.', 'warn'); }
+    var checks = {}; document.querySelectorAll('#form [data-c]').forEach(function(x){ checks[x.dataset.c] = x.checked ? 1 : 0; });
+    car.trip = rid('T'); car.km = km; car.photo = F.photo; car.checks = checks; car.closePrev = !!F.closePrev;
+  }
+  var jobs = GO.jobs, items = GO.items;
+  var it = { action: 'go', rid: rid('R'), ids: jobs.map(function(j){ return j.id; }), extra: EXTRA.slice(), items: items, n: items.length, car: car,
+    carName: items.length + ' 筆行程 trips' + (c ? '・' + c.name : ''), ts: Date.now() };
+  if (F.mode === 'out'){ it.carId = c.id; it.km = car.km; }   // 讓畫面先把車顯示成外出、里程先更新（斷網時）
   if (!enqueue(it)) return;
+  if (F.mode === 'out') lsSet(STORE.trip, { car: c.id, trip: car.trip });
   jobs.forEach(function(j){ j.st = 'doing'; });
-  SEL = {}; EXTRA = []; SKIP = {}; ADDING = false;
-  window.scrollTo(0, 0); renderTrips();
+  SEL = {}; EXTRA = []; SKIP = {}; ADDING = false; GO = null; CUR = null;
+  setTab('trips'); go('home');
   toast('已啟動，路上小心 Started. Drive safely.');
 }
 function finishRun(){
   var run = curRun(); if (!run) return;
+  var c = runNeedsIn(run);
+  if (c) return formBack(run, c);   // 開公司車：填回廠資料（取代連按兩下）
   if (!(SURE > Date.now())){ SURE = Date.now() + 5000; renderTrips(); setTimeout(function(){ if (SURE && SURE <= Date.now()){ SURE = 0; renderTrips(); } }, 5100); return; }
   SURE = 0;
+  sendBack(run, {});
+}
+function sendBack(run, extra){
   var skip = Object.keys(SKIP).filter(function(k){ return SKIP[k]; }).map(Number);
   var n = (run.items || []).length - skip.length;
-  if (!enqueue({ action: 'back', rid: rid('B'), run: run.id, skip: skip, n: n, carName: n + ' 筆行程 trips', ts: Date.now() })) return;
+  var it = { action: 'back', rid: rid('B'), run: run.id, skip: skip, n: n, carName: n + ' 筆行程 trips' + (run.car ? '・' + run.car.name : ''), ts: Date.now() };
+  Object.keys(extra).forEach(function(k){ it[k] = extra[k]; });
+  if (!enqueue(it)) return false;
+  if (it.carId) lsDel(STORE.trip);
   (run.items || []).forEach(function(x, i){ (SYNC.jobs || []).forEach(function(j){ if (x.id && j.id === x.id) j.st = skip.indexOf(i) >= 0 ? 'todo' : 'done'; }); });
   SKIP = {};
-  window.scrollTo(0, 0); renderTrips();
-  toast('已結束，' + dur(Date.now() - run.start) + '，謝謝 Finished, thank you.');
+  setTab('trips'); go('home');
+  toast('已結束，' + dur(Date.now() - run.start) + (it.km && run.car && run.car.km ? '，' + nf(it.km - run.car.km) + ' km' : '') + '，謝謝 Finished, thank you.');
+  return true;
+}
+/** 結束＝回廠：里程、照片、油量、有沒有狀況（同公司車頁的回廠） */
+function formBack(run, c){
+  F = {}; CUR = { car: c, code: '' };
+  var outKm = run.car.km || (c.open ? c.open.km : 0) || lastKm(c);
+  var skipped = Object.keys(SKIP).filter(function(k){ return SKIP[k]; }).length, n = (run.items || []).length - skipped;
+  form('回廠 結束 Finish', esc(c.name) + '・' + esc(c.plate) + '・完成 ' + n + ' 筆 ' + n + ' done',
+    kmBox(c) + '<div class="ref">出門時 At start <b>' + nf(outKm) + ' km</b>　<span id="drv"></span></div>' +
+    '<label class="fl">拍里程表 Photo of odometer</label>' + photoBox('photo', '拍照', 'Take photo') +
+    '<label class="fl">油量 Fuel level</label>' + opts('fuel', FUELLV) +
+    '<label class="fl">有沒有狀況 Anything happened?</label>' + opts('issue', ISSUES) +
+    '<label class="fl">說明 Details</label><textarea class="inp" id="note" rows="2" maxlength="300" placeholder="有狀況請寫清楚 Describe if anything happened"></textarea>',
+    ['warn', '確認回來了', 'Confirm'], function(){
+      var km = Number($('#km').value);
+      if (!km) return stat('請輸入里程 Enter the odometer', 'bad');
+      if (km < outKm) return stat('里程比出門時少，請再看一次 Lower than at start, please check', 'bad');
+      if (!F.photo) return stat('請拍里程表 Take the odometer photo', 'bad');
+      if (!F.fuel) return stat('請選油量 Choose the fuel level', 'bad');
+      if (!F.issue) return stat('請選有沒有狀況 Tell us if anything happened', 'bad');
+      if (F.issue !== 'none' && !$('#note').value.trim()) return stat('有狀況請寫說明 Please describe what happened', 'bad');
+      if (km - outKm > 400 && !F.bigOk){ F.bigOk = 1; return stat('這趟 ' + nf(km - outKm) + ' km 比平常多，確定的話再按一次 Longer than usual. Tap again if correct.', 'warn'); }
+      if (sendBack(run, { carId: c.id, km: km, fuel: F.fuel, issue: F.issue, note: $('#note').value.trim(), photo: F.photo })) CUR = null;
+    }, 'home');
+  $('#km').oninput = function(){ var d = Number($('#km').value) - outKm; $('#drv').textContent = d >= 0 ? '這趟 This run ' + nf(d) + ' km' : ''; };
 }
 setInterval(function(){ var c = $('#runClock'), r = curRun(); if (c && r) c.textContent = dur(Date.now() - r.start); }, 15000);
 setTab(TAB);
@@ -492,7 +625,11 @@ function renderMine(){
 /** 還在佇列裡的出車／回廠，用來讓畫面先反映（斷網時） */
 function pendingByCar(){
   var m = {};
-  queue().forEach(function(it){ if (it.action === 'out' || it.action === 'in') m[it.carId] = it.action; });
+  queue().forEach(function(it){
+    if (it.action === 'out' || it.action === 'in') m[it.carId] = it.action;
+    else if (it.carId && it.action === 'go') m[it.carId] = 'out';     // 今日行程啟動時出車
+    else if (it.carId && it.action === 'back') m[it.carId] = 'in';    // 結束時回廠
+  });
   return m;
 }
 function carState(c){
@@ -545,15 +682,15 @@ var F = {};
 function opts(g, list){ return '<div class="opts">' + list.map(function(o){ return '<button type="button" class="op" data-g="' + g + '" data-v="' + o[0] + '">' + o[1] + '<small>' + o[2] + '</small></button>'; }).join('') + '</div>'; }
 function photoBox(id, zh, en){ return '<div class="ph"><button type="button" onclick="camPhoto(\'' + id + '\',\'' + zh + ' ' + en + '\')"><b>📷 ' + zh + '</b>' + en + '・只能當下拍 Live photo only</button><img id="' + id + '_pv" alt=""></div>'; }
 function bindOpts(){
-  document.querySelectorAll('#form .op').forEach(function(b){ b.onclick = function(){
+  document.querySelectorAll('#form .op[data-g]').forEach(function(b){ b.onclick = function(){
     var g = b.dataset.g; document.querySelectorAll('#form .op[data-g="' + g + '"]').forEach(function(x){ x.classList.remove('on'); });
     b.classList.add('on'); F[g] = b.dataset.v;
   }; });
 }
 function stat(m, cls){ var s = $('#mst'); s.className = 'st ' + (cls || ''); s.textContent = m; }
-function form(title, sub, body, btn, fn){
+function form(title, sub, body, btn, fn, back){
   $('#form').innerHTML = '<div class="carhd' + (title.indexOf('回廠') === 0 ? ' out' : '') + '"><div class="ic">' + carIcon() + '</div><div><b>' + title + '</b><span>' + sub + '</span></div></div>' + body +
-    '<div class="st" id="mst"></div><div class="foot"><button class="btn" onclick="go(\'car\')">取消<small>Cancel</small></button><button class="btn ' + btn[0] + '" id="fsave">' + btn[1] + '<small>' + btn[2] + '</small></button></div>';
+    '<div class="st" id="mst"></div><div class="foot"><button class="btn" onclick="go(\'' + (back || 'car') + '\')">取消<small>Cancel</small></button><button class="btn ' + btn[0] + '" id="fsave">' + btn[1] + '<small>' + btn[2] + '</small></button></div>';
   bindOpts(); $('#fsave').onclick = fn; go('form');
 }
 function kmBox(c){ return '<label class="fl">現在里程表 Odometer now (km)<small>看儀表板的總里程 Read the total km on the dashboard</small></label><input class="num" id="km" inputmode="numeric" pattern="[0-9]*" placeholder="' + lastKm(c) + '">'; }

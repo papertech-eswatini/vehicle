@@ -1,6 +1,6 @@
 {
-  "name": "PTE 公司車 Vehicle",
-  "short_name": "PTE Vehicle",
+  "name": "PTE 司機 Driver",
+  "short_name": "PTE Driver",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",
